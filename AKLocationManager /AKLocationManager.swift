@@ -1,9 +1,9 @@
 //
 //  AKLocationManager.swift
-//  Main class
-//
+//  Base class
+//  
 //  Created by Krachulov Artem
-//  Copyright (c) 2015 Krachulov Artem. All rights reserved.
+//  Copyright (c) 2016 Krachulov Artem. All rights reserved.
 //  Website: http://www.artemkrachulov.com/
 //
 
@@ -11,243 +11,235 @@ import CoreLocation
 import CoreMotion
 import UIKit
 
+//  MARK: - AKLocationManagerNotification
+
+enum AKLocationManagerNotification {
+  case LocationManagerNotAuthorized
+  case UserDeniedAuthorization
+  case UserAllowedAuthorization
+  case AuthorizationAllowed
+  case AuthorizationDenied
+  case GoToBackground
+  case BackFromBackground
+}
+
+//  MARK: - AKLocationManagerError
+
 enum AKLocationManagerError: ErrorType {
   
-  /**
-   *  Error returns when AKLocationManager can't start 
-   *  detecting activity with CMMotionActivity class.
-   */
-  case ActivityManagerNotAvailable
+  /// Error returns when ditectFirsLocationTime time is off.
   
-  /**
-   *  Error returns when AKLocationManager can't start updating
-   *  location, because core location status is NotDetermined | Restricted | Denided.
-   */
-  case LocationManagerNotAuthorized
-  
-  /**
-   *  Error returns when ditectFirsLocationTime time is off.
-   */
   case LocationManagerCantDetectFirstLocation
 }
 
+//  MARK: - AKLocationManagerDelegate
+
 protocol AKLocationManagerDelegate : class {
-  
   func locationManager(manager: AKLocationManager, didGetFirstLocation location: CLLocation)
   func locationManager(manager: AKLocationManager, didUpdateLocation location: CLLocation)
   func locationManager(manager: AKLocationManager, didUpdateLocation location: CLLocation, afterTimeInterval ti: NSTimeInterval)
   func locationManager(manager: AKLocationManager, didUpdateLocation location: CLLocation?, inLoopModeAfterTimeInterval ti: NSTimeInterval)
   func locationManager(manager: AKLocationManager, didUpdateLocation location: CLLocation, afterDistance distance: CLLocationDistance)
   
-  // User change authorization status
-  func locationManagerReceivedDeniedNotification(manager: AKLocationManager)
-  func locationManagerReceivedAllowedNotification(manager: AKLocationManager)
-
-  // Core location manager receive changing authorization status
-  func locationManagerAuthorized(manager: AKLocationManager)
-  func locationManagerDenied(manager: AKLocationManager)
-  
   // Errors
+  
   func locationManager(manager: AKLocationManager, didGetError error: AKLocationManagerError)
+  
+  // Notifications
+  
+  func locationManager(manager: AKLocationManager, didGetNotification notification: AKLocationManagerNotification)
 }
+
+extension AKLocationManagerDelegate {
+  func locationManager(manager: AKLocationManager, didGetFirstLocation location: CLLocation) {}
+  func locationManager(manager: AKLocationManager, didUpdateLocation location: CLLocation) {}
+  func locationManager(manager: AKLocationManager, didUpdateLocation location: CLLocation, afterTimeInterval ti: NSTimeInterval) {}
+  func locationManager(manager: AKLocationManager, didUpdateLocation location: CLLocation?, inLoopModeAfterTimeInterval ti: NSTimeInterval)  {}
+  func locationManager(manager: AKLocationManager, didUpdateLocation location: CLLocation, afterDistance distance: CLLocationDistance) {}
+  func locationManager(manager: AKLocationManager, didGetError error: AKLocationManagerError) {}
+  func locationManager(manager: AKLocationManager, didGetNotification notification: AKLocationManagerNotification) {}
+}
+
+//  MARK: - AKLocationManager
 
 class AKLocationManager: NSObject {
   
-  // MARK: - Settings
-  //         _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+  //  MARK: Settings
   
-  /**
-   *  Allows update location when applicaiton in background mode. False value
-   *  will pause / start updation when application go / out from background mode.
-   */
-  var allowUpdateLocationInBackground: Bool = true
+  /// Allows update location when applicaiton in background mode. False value
+  /// will stop / start updating location when application go / back from "Background" state.
+  ///
+  var allowUpdateLocationInBackground: Bool = false
   
-  /**
-   *  Specifies the update time intervar in secounds.
-   */
+  /// Specifies the update time intervar in secounds.
+  ///
+  /// Class will call follow delegate method:
+  ///
+  ///     func locationManager(manager: AKLocationManager, didUpdateLocation location: CLLocation?, inLoopModeAfterTimeInterval ti: NSTimeInterval)
+  ///
+  /// every n secounds.
+  ///
   var loopLocationTimeInterval: NSTimeInterval = 5
   
-  /**
-   *  Specifies the minimum update time intervar in secounds.
-   */
-  var updateLocationTimeInterval: NSTimeInterval = 2
+  /// Specifies the minimum update time intervar in secounds.
+  /// Even if core manger of other object will receive new location. 
+  ///
+  /// Follow delegate method:
+  ///
+  ///     func locationManager(manager: AKLocationManager, didUpdateLocation location: CLLocation)
+  ///
+  /// will run not less when n secounds delay after prevoius
+  ///
+  var updateLocationTimeInterval: NSTimeInterval = 2.0
   
-  /**
-   *  Specifies the minimum update distance in meters. This distance can be 
-   *  increased automatically, depending on moving speed. To enable this, set incleaseUpdatedDistanceOnSpeedChange property
-   *  to true value.
-   */  
-  var minimumUpdateDistance: CLLocationDistance = 50
+  /// Specifies the speed in meters per second, when location 
+  /// must be updated with updateLocationTimeInterval property.
+  /// 
+  /// Examples:
+  /// 
+  /// - 0       Stand
+  /// - 1 - 2   Walk
+  /// - 2 - 7   Run
+  /// - 7 - 11  Bicycle
+  ///
+  var updateLocationSpeed: CLLocationSpeed = 0.0
   
-  /**
-   *  True value of this property will increase minimum update distance
-   *  automatically, depending on moving speed. 
-   *  Formula: 0.3xspeed^2. 
-   *  But not less minimumUpdateDistance property value.
-   */
-  var incleaseUpdatedDistanceOnSpeedChange: Bool = false
+  /// Specifies the max update time intervar in secounds. If updateLocationSpeed proretry have
+  /// not zero value, but location manager can't detect speed.
+  ///
+  /// Follow delegate method:
+  ///
+  ///     func locationManager(manager: AKLocationManager, didUpdateLocation location: CLLocation)
+  ///
+  /// will run after n secounds delay.
+  ///
+  var updateMaxLocationTimeInterval: NSTimeInterval = 300.0
   
-  /**
-   *  Specifies the time interval in secounds when AKLocationManager will try to
-   *  get first location. If location undefined and timer is finished 
-   *  class will return error LocationManagerCantDetectFirstLocation.
-   */
+  /// Specifies the time interval in secounds when class will try to
+  /// get first location. If location undefined and timer is off,
+  /// class will return error .LocationManagerCantDetectFirstLocation from error delegate method:
+  ///
+  ///     func locationManager(manager: AKLocationManager, didGetError error: AKLocationManagerError)
+  ///
   var ditectFirsLocationTime: Int = 5
   
-  // Delegate
+  //  MARK: Properties
+  
   weak var delegate: AKLocationManagerDelegate?
   
-  // MARK: - Properties
-  //         _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+  /// Core Location manager
+  /// Can be initialized with custom properties
+  ///
+  var locationManager: CLLocationManager?
   
-  var locationManager: CLLocationManager? {
-    didSet { locationManager?.delegate = self }
-  }
-  
+  /// Return location from Core Location manager
+  ///
   var myLocation: CLLocation? {
     return locationManager?.location
   }
+
+  //  MARK: Private Properties
   
+  /// Using to detecting current speed
+  ///
   private var previousMyLocation: CLLocation!
-  private var previousRefreshedDate: NSDate!
-  private var distanceFromLastUpdate: CLLocationDistance = 0.0
   
-  private var activityManager: CMMotionActivityManager?
-  private var currentActivity: CMMotionActivity?
-  
-  // Observers
+  private var totalDistance: CLLocationDistance = 0.0
+  private var measureStartLocation: CLLocation!
+  private var measureDistance: CLLocationDistance!
   
   private var observerObject: AnyObject!
   private var observerKeyPath: String!
+  private var observerAdded: Bool = false
   
-  // Other
+  /// This property using to detect if user manually change authorization status
+  ///
+  private var authorizationNotDetermined: Bool = false
+  private var authorizationAllowed: Bool = false
+  private var authorizationDenied: Bool = false
+  private var authorizationStatus: CLAuthorizationStatus {
+    return CLLocationManager.authorizationStatus()
+  }
+  private var isAuthorized: Bool {
+    return authorizationStatus == .AuthorizedAlways || authorizationStatus == .AuthorizedWhenInUse
+  }
   
-  private var authorizedFlag: Bool = false
-  private var deniedFlag: Bool = false
-  
-  private var observerObjectFlag: Bool = false
+  //  Timers
   
   private var firstLocationTimer: NSTimer?
-  private var firstLocationFlag: Bool = false
-  
-  
+  private var firstLocation: Bool = false
   private var firstLocationCounter: Int = 0
   
   private var loopUpdateLocationTimer: NSTimer?
+  
   private var updateLocationTimer: NSTimer?
-  
-  private var updateLocationStartedFlag: Bool = false
-  
-  
 
+  private var updateMaxLocationTimer: NSTimer?
   
-  private var appInBackgroundFlag: Bool = false
+  //  Other
   
-  /**
-   *  This property using to detect if user manually change authorization status
-   */
-  private var appNotDeterminedFlag: Bool = false
+  /// This property (flag) is used to prevent loops execution method name
+  ///
+  private var _startSafeUpdatingLocation: Bool = false
   
+  /// This property (flag) is used to prevent loops execution method name
+  ///
+  private var  _addResignActiveObservers: Bool = false
   
-  private func appAuthorizedFlad() throws -> Bool {
-    guard authorizationStatus == .AuthorizedAlways || authorizationStatus == .AuthorizedWhenInUse else {
-      throw AKLocationManagerError.LocationManagerNotAuthorized
-    }
-    
-    return true
-  }
+  private var updateLocationStarted: Bool = false
   
-  private var authorizationStatus: CLAuthorizationStatus { return CLLocationManager.authorizationStatus() }
-  
-  
-  private var enableActivityManager: Bool = false
-  
-  // MARK: - Initialization
-  //         _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
-  /*
-  override init() {
-    super.init()
-    
-    addResignActiveObservers()
-  }*/
-  
-  convenience init(enableActivityManager: Bool) {
-    self.init()
-    
-    addResignActiveObservers()
-    
-    self.enableActivityManager = enableActivityManager
-  }
-  
-  // MARK: - Methods
-  //         _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
-  
+  /// Key to detect current class "Background" state.
+  /// Used to stop / start updatig locations if allowUpdateLocationInBackground setting set to true
+  ///
+  private var inBackground: Bool = false
+
+  //  MARK: - Methods
+
   func requestForUpdatingLocation() {
-    
     #if AKLocationManagerDEBUG
-      print("requestForUpdatingLocation")
-      print("")
+      print("\(self.dynamicType) \(#function) \n")
     #endif    
     
+    //  CLLocationManager initalization.
+    //  Initalization will call requestWhenInUseAuthorization() method automatically
+    
     if locationManager == nil {
-      
-      locationManager = CLLocationManager() // initalization will call requestWhenInUseAuthorization() method
-      locationManager!.desiredAccuracy = kCLLocationAccuracyBest
-      locationManager!.activityType = .Fitness
-      locationManager!.distanceFilter = 1
+      locationManager = CLLocationManager()
+      locationManager?.delegate = self
+      locationManager?.desiredAccuracy = kCLLocationAccuracyBest
+      locationManager?.activityType = .Fitness
+      locationManager?.distanceFilter = 1
     }
     
-    if enableActivityManager {
-      if ( CMMotionActivityManager.isActivityAvailable() ) {
-        
-        activityManager = CMMotionActivityManager()
-      } else {
-        
-        delegate?.locationManager(self,
-                                  didGetError: .ActivityManagerNotAvailable)
-      }
-    }
-
-    do {
-      try appAuthorizedFlad()
-    } catch {
-      
-        locationManager?.requestWhenInUseAuthorization()
-    }
+    //  Prevent authorization if class already authorized
+    //
+    guard !isAuthorized else { return }
+    locationManager?.requestWhenInUseAuthorization()
   }
   
   func startUpdatingLocation() {
-    
     #if AKLocationManagerDEBUG
-      print("startUpdatingLocation")
-      print("")
+      print("\(self.dynamicType) \(#function) \n")
     #endif
     
-    /**
-     *  Global flag to detect if
-     *  startUpdatingLocation method was called
-     */
-    updateLocationStartedFlag = true
+    //  Global flag to detect if startUpdatingLocation method was called
+    //
+    updateLocationStarted = true
     
-    /**
-     *  Manually reset first location.
-     *  When user call this method again
-     */
-    if firstLocationCounter != 0 {
-      firstLocationCounter = 0
+    guard isAuthorized else {
+      delegate?.locationManager(self,
+                                didGetNotification: .LocationManagerNotAuthorized)
+      return
     }
     
-    do {
-      try appAuthorizedFlad()
-      
-      _startSafeUpdatingLocationFlag = false
-       startSafeUpdatingLocation()
-      
-    } catch {
-      
-//      delegate?.locationManager(self,
-//                                didGetError: .LocationManagerNotAuthorized)
-    }
+    //  Manually reset first location counter when user call this method again
+    //
+    if firstLocationCounter != 0 { firstLocationCounter = 0 }
+    
+    //  START
+    //
+    _startSafeUpdatingLocation = false
+    startSafeUpdatingLocation()
   }
   
   func startUpdatingLocationWithRequest() {
@@ -255,237 +247,229 @@ class AKLocationManager: NSObject {
     startUpdatingLocation()
   }
   
-  func pauseUpdatingLocation() {
-    
+  func stopUpdatingLocation() {
     #if AKLocationManagerDEBUG
-      print("pauseUpdatingLocation")
-      print("")
+      print("\(self.dynamicType) \(#function) \n")
     #endif
     
-    /**
-     *  Release flag
-     */
-    updateLocationStartedFlag = false
-    
-    pauseSafeUpdatingLocation()
+    //  STOP
+    //
+    updateLocationStarted = false
+    stopSafeUpdatingLocation()
   }
   
   func updateLocation() {
-    resetLocationTimers()
-    _updateLocation(myLocation)
+    guard let location = myLocation else { return }
+    
+    locationTimersReset()
+    
+    // Manual update location
+    //
+    updateLocation(location)
   }
   
-  func startObservervingObject(target: AnyObject, forKeyPath: String) {
+  func addObserver(target: AnyObject, forKeyPath: String) {
     observerObject = target
     observerKeyPath = forKeyPath
   }
   
-  func stopObservervingObject() {
-    
-    guard observerObjectFlag else {
-      return
-    }
+  func removeObserver() {
+    guard observerAdded else { return }
     
     observerObject?.removeObserver(self, forKeyPath: observerKeyPath)
     
     observerObject = nil
     observerKeyPath = nil
-    
-    observerObjectFlag = false
+    observerAdded = false
   }
   
   func resetSettings() {
     allowUpdateLocationInBackground = false
     loopLocationTimeInterval = 5
     updateLocationTimeInterval = 2
-    minimumUpdateDistance = 50
-    incleaseUpdatedDistanceOnSpeedChange = false
+//    minimumUpdateDistance = 50
+//    incleaseUpdatedDistanceOnSpeedChange = false
     ditectFirsLocationTime = 5
   }
   func destroy() {
-    
-    /// Destroy
-    /// 1. Background notiications
+    //  1. Background notiications
+    //
     NSNotificationCenter.defaultCenter().removeObserver(self)
+    _addResignActiveObservers = false
     
-    /// 2.1. CLLocationManager
-    /// 2.2. CMMotionActivityManager
-    /// 2.3. Object
-    /// 2.4.a Location timers
+    //  2.1. CLLocationManager
+    //  2.2. Object
+    //  2.3.a Location timers
+    //
+    inBackground = false
+    stopSafeUpdatingLocation()
     
-    _pauseSafeUpdatingLocation()
-    
-    /// 2.4.b First location timer
-    
+    //  2.3.b First location timer
+    //
     firstLocationTimerReset()
     
-    /// 3. Object data
+    //  3. Rest object data
+    //
     observerObject = nil
     observerKeyPath = nil
     
-    /// 4. Managers
+    //  4. Manager
+    //
     locationManager = nil
-    activityManager = nil
     
+    //  5. Settings
+    //
     resetSettings()
   }
   
-  // MARK: - Pivate methods
-  //         _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+  //  MARK: - Pivate methods
   
   private func startSafeUpdatingLocation() {
-    
-    do {
-      try appAuthorizedFlad()
+    func start() {
+      #if AKLocationManagerDEBUG
+        print("\(self.dynamicType) \(#function) \n")
+      #endif
       
-      if appInBackgroundFlag {
-        if allowUpdateLocationInBackground {
-          
-          _startSafeUpdatingLocation()
-        }
-      } else  {
-        
-        _startSafeUpdatingLocation()
-      }
-    } catch {}
-  }
-  
-  /**
-   *  This property (flag) is used to prevent loops execution method name
-   */
-  private var _startSafeUpdatingLocationFlag: Bool = false
-  
-  private func _startSafeUpdatingLocation() {
-    
-    #if AKLocationManagerDEBUG
-      print("_safeUpdatingLocation")
-      print(" ")
-    #endif
-    
-    /// Сhecks:
-    /// 1. Global
-    guard updateLocationStartedFlag else {
-      return
-    }
+      guard updateLocationStarted && !_startSafeUpdatingLocation else { return }
+      _startSafeUpdatingLocation = true
+      
+      //  START
+      //  1. CLLocationManager
+      //
+      locationManager?.startUpdatingLocation()
 
-    /// 2. Looping
-    guard !_startSafeUpdatingLocationFlag else {
-      return
-    }
-    _startSafeUpdatingLocationFlag = true
-    
-    /// Start services:
-    /// 1. CLLocationManager
-    locationManager?.startUpdatingLocation()
-    
-    /// 2. CMMotionActivityManager
-    activityManager?.startActivityUpdatesToQueue(NSOperationQueue.mainQueue(),
-                                                 withHandler: { (data) in
-                                                  self.currentActivity = data
-    })
-    
-    /// 3. Object
-    if observerObject != nil && !observerObjectFlag {
-      
-      observerObject?.addObserver(self, forKeyPath: observerKeyPath, options: NSKeyValueObservingOptions.New, context: nil)
-      observerObjectFlag = true
-    }
-    
-    firstLocationTimerStart()
-  }
-  
-  private func pauseSafeUpdatingLocation() {
-    
-    if appInBackgroundFlag {
-      if !allowUpdateLocationInBackground {
-        
-        _pauseSafeUpdatingLocation()
+      //  2. Object
+      //
+      if observerObject != nil && !observerAdded {
+        observerObject?.addObserver(self, forKeyPath: observerKeyPath, options: NSKeyValueObservingOptions.New, context: nil)
+        observerAdded = true
       }
-    } else  {
-      
-      _pauseSafeUpdatingLocation()
-    }
-  }
-  
-  private func _pauseSafeUpdatingLocation() {
-    
-    #if AKLocationManagerDEBUG
-      print("_pauseSafeUpdatingLocation")
-      print("")
-    #endif
-    
-    /// Reset flag
-    _startSafeUpdatingLocationFlag = false
-    
-    /// Stop services:
-    /// 1. CLLocationManager
-    locationManager?.stopUpdatingLocation()
-    
-    /// 2. CMMotionActivityManager
-    activityManager?.stopActivityUpdates()
-    
-    /// 3. Object
-    if observerObjectFlag {
-      
-      observerObject?.removeObserver(self, forKeyPath: observerKeyPath)
-      observerObjectFlag = false
+      //  3. Timers
+      //  3.a First location
+      //  3.b Loop location
+      //
+      locationTimersStart()
     }
     
-    resetLocationTimers()
+    guard isAuthorized else { return }
+    
+    if inBackground {
+      if allowUpdateLocationInBackground { start() }
+    } else { start() }
   }
   
-  /**
-   *  Reset updateLocationTimer and loopUpdateLocationTimer
-   */
-  private func resetLocationTimers() {
+  private func stopSafeUpdatingLocation() {
+    func stop() {
+      #if AKLocationManagerDEBUG
+        print("\(self.dynamicType) \(#function) \n")
+      #endif
+
+      _startSafeUpdatingLocation = false
+      
+      //  STOP
+      //  1. CLLocationManager
+      //
+      locationManager?.stopUpdatingLocation()
+      
+      //  2. Object
+      //
+      if observerAdded {
+        observerObject?.removeObserver(self, forKeyPath: observerKeyPath)
+        observerAdded = false
+      }
+      
+      //  3. Timers
+      //  3.a First location
+      //  3.b Loop location
+      //
+      locationTimersReset()
+    }
     
-    /// 1. Update with time interval timer
+    if inBackground {
+      if !allowUpdateLocationInBackground { stop() }
+    } else { stop() }
+  }
+  
+  /// Reset updateLocationTimer and loopUpdateLocationTimer
+  ///
+  private func locationTimersReset() {
+    
+    //   Update with time interval timer
+    //
     updateLocationTimerReset()
     
-    /// 2. Loop timer
+    //   Update with time max interval timer
+    //
+    updateMaxLocationTimerReset()
+    
+    //   Loop timer
+    //
     loopUpdateLocationTimerReset()
   }
 
-  private func _updateLocation(location: CLLocation?) {
+  private func updateLocation(location: CLLocation) {
     
-    guard /*updateLocationStartedFlag ||*/ myLocation != nil else {
-      return
+    //  Update
+    //
+    delegate?.locationManager(self,
+                              didUpdateLocation: location)
+    
+    //  Update after time interval and speed
+    //
+    if location.speed >= updateLocationSpeed {
+      updateLocationTimerStart()
+      updateMaxLocationTimerReset()
+    } else {
+      updateMaxLocationTimerStart()
     }
-    
-    /// User methods:
-    /// 1. Update
-    delegate?.locationManager(self, didUpdateLocation: myLocation!)
-    
-    /// 3. Update after time interval
-    updateLocationTimerStart()
   }
-  
+
   private func addResignActiveObservers() {
-    
-    let nc = NSNotificationCenter.defaultCenter()
-    
-    nc.addObserver(self,
-                   selector:#selector(appWillResignActiveNotification),
-                   name:UIApplicationWillResignActiveNotification,
-                   object:nil)
-    
-    nc.addObserver(self,
-                   selector:#selector(appDidBecomeActiveNotification),
-                   name:UIApplicationDidBecomeActiveNotification,
-                   object:nil)
+    if !_addResignActiveObservers {
+      let nc = NSNotificationCenter.defaultCenter()
+      nc.addObserver(self,
+                     selector:#selector(appWillResignActiveNotification),
+                     name:UIApplicationWillResignActiveNotification,
+                     object:nil)
+      nc.addObserver(self,
+                     selector:#selector(appDidBecomeActiveNotification),
+                     name:UIApplicationDidBecomeActiveNotification,
+                     object:nil)
+      _addResignActiveObservers = true
+    }
   }
   
-  // MARK: - Timers
-  //         _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+  //  MARK: - Timers
+  //  MARK:   Update max location
+  
+  private func updateMaxLocationTimerStart() {
+    if updateMaxLocationTimer == nil {
+      #if AKLocationManagerDEBUG
+        print("\(self.dynamicType) \(#function) \n")
+      #endif
+      
+      updateMaxLocationTimer = NSTimer.scheduledTimerWithTimeInterval(updateMaxLocationTimeInterval,
+                                                                   target: self,
+                                                                   selector: #selector(updateMaxLocationTimerReset),
+                                                                   userInfo: nil,
+                                                                   repeats: false)
+      
+      delegate?.locationManager(self, didUpdateLocation: myLocation!, afterTimeInterval: updateMaxLocationTimeInterval)
+    }
+  }
+
+  @objc private func updateMaxLocationTimerReset() {
+    updateMaxLocationTimer?.invalidate()
+    updateMaxLocationTimer = nil
+  }
+  
+  //  MARK:   Update location
   
   private func updateLocationTimerStart() {
-    
-    #if AKLocationManagerDEBUG
-      print("updateLocationTimerStart")
-      print("")
-    #endif
-    
     if updateLocationTimer == nil {
+      #if AKLocationManagerDEBUG
+        print("\(self.dynamicType) \(#function) \n")
+      #endif
       
       updateLocationTimer = NSTimer.scheduledTimerWithTimeInterval(updateLocationTimeInterval,
                                                                    target: self,
@@ -498,19 +482,17 @@ class AKLocationManager: NSObject {
   }
   
   @objc private func updateLocationTimerReset() {
-    
     updateLocationTimer?.invalidate()
     updateLocationTimer = nil
   }
   
+  //  MARK:   Update location with loop
+  
   private func loopUpdateLocationTimerStart() {
-    
-    #if AKLocationManagerDEBUG
-      print("loopLocationTimerStart")
-      print("")
-    #endif
-    
     if loopUpdateLocationTimer == nil {
+      #if AKLocationManagerDEBUG
+        print("\(self.dynamicType) \(#function) \n")
+      #endif
       
       loopUpdateLocationTimer = NSTimer.scheduledTimerWithTimeInterval(loopLocationTimeInterval,
                                                                  target: self,
@@ -522,26 +504,23 @@ class AKLocationManager: NSObject {
   }
   
   @objc private func loopUpdateLocationTimerAction() {
-    
     delegate?.locationManager(self,
                               didUpdateLocation: myLocation,
                               inLoopModeAfterTimeInterval: updateLocationTimeInterval)
   }
   
   private func loopUpdateLocationTimerReset() {
-    
     loopUpdateLocationTimer?.invalidate()
     loopUpdateLocationTimer = nil
   }
   
-  private func firstLocationTimerStart() {
-    
-    #if AKLocationManagerDEBUG
-      print("firstLocationTimerStart")
-      print("")
-    #endif
-    
-    if !firstLocationFlag && firstLocationTimer == nil {
+  //  MARK:   First location
+  
+  private func locationTimersStart() {
+    if !firstLocation && firstLocationTimer == nil {
+      #if AKLocationManagerDEBUG
+        print("\(self.dynamicType) \(#function) \n")
+      #endif
       
       firstLocationTimer = NSTimer.scheduledTimerWithTimeInterval(1,
                                                                   target: self,
@@ -550,24 +529,21 @@ class AKLocationManager: NSObject {
                                                                   repeats: true)
       firstLocationTimerAction()
     }
+    
+    loopUpdateLocationTimerStart()
   }
   
   @objc private func firstLocationTimerAction() {
-    
-    if !firstLocationFlag {
+    if !firstLocation {
       if let myLocation = myLocation {
 
         delegate?.locationManager(self,
                                   didGetFirstLocation: myLocation)
         
-        firstLocationFlag = true
-        
+        firstLocation = true
         firstLocationTimerReset()
         
-        loopUpdateLocationTimerStart()
-        
       } else {
-        
         firstLocationCounter += 1
         while firstLocationCounter == ditectFirsLocationTime {
 
@@ -580,203 +556,130 @@ class AKLocationManager: NSObject {
   }
   
   private func firstLocationTimerReset() {
-    
     firstLocationTimer?.invalidate()
     firstLocationTimer = nil
   }
   
-  // MARK: - Access
-  //         _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+  //  MARK: - Check authorization
   
   func locationAccessDenied(onComplete: (locationServicesEnabled: Bool) -> ()) {
-    
     if authorizationStatus == .Denied {
       onComplete(locationServicesEnabled: CLLocationManager.locationServicesEnabled())
     }
   }
   
   func locationAccessRestricted(onComplete: (locationServicesEnabled: Bool) -> ()) {
-    
     if authorizationStatus == .Restricted {
       onComplete(locationServicesEnabled: CLLocationManager.locationServicesEnabled())
     }
   }
   
   func locationAccessNotDetermined(onComplete: (locationServicesEnabled: Bool) -> ()) {
-    
     if authorizationStatus == .NotDetermined {
       onComplete(locationServicesEnabled: CLLocationManager.locationServicesEnabled())
     }
   }
   
-  deinit {
-    print("deinit AKLocationManager")
-  }
+  //  MARK: - Life cycle
+  
+  deinit { print("deinit \(self.dynamicType)") }
 }
 
-// MARK: - CLLocationManagerDelegate
-//         _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+//  MARK: - CLLocationManagerDelegate
 
 extension AKLocationManager: CLLocationManagerDelegate {
-  
   func locationManager(manager: CLLocationManager, didChangeAuthorizationStatus status: CLAuthorizationStatus) {
-    
-    #if AKLocationManagerDEBUG
-      print("didChangeAuthorizationStatus \(status)")
-      print("")
-    #endif
-    
     switch status {
-    case .AuthorizedAlways, .AuthorizedWhenInUse:
+    case .AuthorizedAlways,
+         .AuthorizedWhenInUse:
       
-      if appNotDeterminedFlag || appInBackgroundFlag {
-        
-        delegate?.locationManagerReceivedAllowedNotification(self)
+      if authorizationNotDetermined || inBackground {
+        delegate?.locationManager(self,
+                                  didGetNotification: .UserAllowedAuthorization)
       }
       
-      if !authorizedFlag {
-        delegate?.locationManagerAuthorized(self)
+      if !authorizationAllowed {
+        delegate?.locationManager(self,
+                                  didGetNotification: .AuthorizationAllowed)
         
-        deniedFlag = false
-        authorizedFlag = true
+        authorizationDenied = false
+        authorizationAllowed = true
       }
       
       startSafeUpdatingLocation()
+      addResignActiveObservers()
       
     case .NotDetermined:
-      appNotDeterminedFlag = true
+      authorizationNotDetermined = true
       
     case .Denied:
 
-      pauseSafeUpdatingLocation()
+      stopSafeUpdatingLocation()
       
-      if appNotDeterminedFlag || appInBackgroundFlag {
-        
-        delegate?.locationManagerReceivedDeniedNotification(self)
+      if authorizationNotDetermined || inBackground {
+        delegate?.locationManager(self,
+                                  didGetNotification: .UserDeniedAuthorization)
       }
       
-      if !deniedFlag {
-        delegate?.locationManagerDenied(self)
+      if !authorizationDenied {
+        delegate?.locationManager(self,
+                                  didGetNotification: .AuthorizationDenied)
         
-        deniedFlag = true
-        authorizedFlag = false
+        authorizationDenied = true
+        authorizationAllowed = false
       }
+      addResignActiveObservers()
+      
     case .Restricted: ()
     }
   }
   
   func locationManager(manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+    guard let location = locations.first else { return }
     
-    guard let myLocation = locations.first else {
-      return
-    }
-    _updateLocation(myLocation)
-    
-    if previousMyLocation != nil {
-      
-      let distance = CLLocationDistance(myLocation.distanceFromLocation(previousMyLocation))
-      
-      if enableActivityManager {
-        if CMMotionActivityManager.isActivityAvailable() {
-          if let currentActivity = currentActivity {
-            if !currentActivity.unknown && !currentActivity.stationary {
-              
-              distanceFromLastUpdate += distance
-            }
-          }
-        } else {
-          distanceFromLastUpdate += distance
-        }
-      } else {
-        distanceFromLastUpdate += distance
-      }
-      
-      // Accuracy
-      
-      // Distance
-      var currentUpdatedDistance = minimumUpdateDistance
-      
-      if incleaseUpdatedDistanceOnSpeedChange {
-        
-        // Stay       0           km/h
-        // Walk       0   - 5     km/h
-        // Run        16  - 25    km/h
-        // Bicycle    16  - 40    km/h
-        // Car        60  - 180   km/h
-        // Super Car  180 - 320   km/h
-        // Fly        500 – 1000  km/h
-        
-        let time = previousRefreshedDate.timeIntervalSinceNow
-        previousRefreshedDate = NSDate()
-        
-        let speed = (distance * 1000) / (time * -3600) // km/h
-        
-        currentUpdatedDistance = 0.3 * speed * speed + 50
-      }
-      
-      if distanceFromLastUpdate >= currentUpdatedDistance {
-        
-        distanceFromLastUpdate = 0
-        delegate?.locationManager(self,
-                                  didUpdateLocation: myLocation,
-                                  afterDistance: currentUpdatedDistance)
-      }
-    }
-    
-    previousMyLocation = myLocation
+    //  Update
+    //
+    updateLocation(location)
   }
 }
 
-// MARK: - Custom location Observer
-//         _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+//  MARK: - Custom location Observer
 
 extension AKLocationManager {
   override func observeValueForKeyPath(keyPath: String?, ofObject object: AnyObject?, change: [String : AnyObject]?, context: UnsafeMutablePointer<Void>) {
-    
     if let keyPath = keyPath where keyPath == "myLocation" {
+      guard let location = change![NSKeyValueChangeNewKey] as? CLLocation else { return }
       
-      _updateLocation(change![NSKeyValueChangeNewKey] as? CLLocation)
+      //  Update
+      //
+      updateLocation(location)
     }
   }
 }
 
-// MARK: - Background Observer
-//         _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+//  MARK: - Background Observer
 
 extension AKLocationManager {
   func appWillResignActiveNotification() {
-    
     #if AKLocationManagerDEBUG
-      print("appWillResignActiveNotification")
-      print("")
+      print("\(self.dynamicType) \(#function)")
     #endif
     
-    appInBackgroundFlag = true
-    pauseSafeUpdatingLocation()
+    inBackground = true
+    stopSafeUpdatingLocation()
+    delegate?.locationManager(self,
+                              didGetNotification: .GoToBackground)
   }
   
   func appDidBecomeActiveNotification() {
-    
+    guard inBackground else { return }
     #if AKLocationManagerDEBUG
-      print("appDidBecomeActiveNotification")
-      print("")
+      print("\(self.dynamicType) \(#function)")
     #endif
-
-    appInBackgroundFlag = false
+    
+    inBackground = false
     startSafeUpdatingLocation()
+    delegate?.locationManager(self,
+                              didGetNotification: .BackFromBackground)
   }
-}
-
-
-extension AKLocationManagerDelegate {
-  func locationManager(manager: AKLocationManager, didGetFirstLocation location: CLLocation) {}
-  func locationManager(manager: AKLocationManager, didUpdateLocation location: CLLocation) {}
-  func locationManager(manager: AKLocationManager, didUpdateLocation location: CLLocation, afterTimeInterval ti: NSTimeInterval) {}
-  func locationManager(manager: AKLocationManager, didUpdateLocation location: CLLocation?, inLoopModeAfterTimeInterval ti: NSTimeInterval)  {}
-  func locationManager(manager: AKLocationManager, didUpdateLocation location: CLLocation, afterDistance distance: CLLocationDistance) {}
-  func locationManager(manager: AKLocationManager, didGetError error: AKLocationManagerError) {}
-  func locationManagerReceivedDeniedNotification(manager: AKLocationManager) {}
-  func locationManagerReceivedAllowedNotification(manager: AKLocationManager) {}
-  func locationManagerAuthorized(manager: AKLocationManager) {}
-  func locationManagerDenied(manager: AKLocationManager) {}
 }

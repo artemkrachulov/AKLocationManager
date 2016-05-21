@@ -3,7 +3,7 @@
 //  AKLocationManager Demo
 //
 //  Created by Artem Krachulov.
-//  Copyright © 2016 Krachulov Artem . All rights reserved.
+//  Copyright © 2016 Krachulov Artem. All rights reserved.
 //  Website: http://www.artemkrachulov.com/
 //
 
@@ -12,66 +12,48 @@ import GoogleMaps
 
 class DemoViewController: UIViewController {
   
-  // MARK: - Segue flag
-  //         _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
-  
-  var google = false
-  
-  // MARK: - Outlets
-  //         _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
-  
-  @IBOutlet weak var locationView: UIView!
-  @IBOutlet weak var locationLabel: UILabel!
-  
+  //  MARK: - Outlets
+
   @IBOutlet weak var location1View: UIView!
   @IBOutlet weak var location1Label: UILabel!
-  
   @IBOutlet weak var location2View: UIView!
   @IBOutlet weak var location2Label: UILabel!
-  
   @IBOutlet weak var location3View: UIView!
   @IBOutlet weak var location3Label: UILabel!
-  
   @IBOutlet weak var location4View: UIView!
   @IBOutlet weak var location4Label: UILabel!
   
-  @IBOutlet weak var location5View: UIView!
-  @IBOutlet weak var location5Label: UILabel!
-  
-  // Objects
+  //  Objects
   
   var locationManager: AKLocationManager! {
-    didSet {
-      locationManager.delegate = self
-    }
+    didSet { locationManager.delegate = self }
   }
   
   var mapView: GMSMapView!
+  
+  //  Other
+  
+  var google = false
 
-  
-  // MARK: - Life cycle
-  //         _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
-  
+  //  MARK: - Life cycle
+
   override func viewDidLoad() {
     super.viewDidLoad()
     
-    locationManager = AKLocationManager(enableActivityManager: true)
-    /**
-     *  If you want initalzie CLLocationManager with custom settings:
-     */
-//         let coreLocationManager = CLLocationManager()
-//         coreLocationManager.desiredAccuracy = kCLLocationAccuracyBest
-//         coreLocationManager.activityType = .AutomotiveNavigation
-//         coreLocationManager.distanceFilter = 5
-//         coreLocationManager.delegate = self
-//         locationManager.locationManager = coreLocationManager
-    /**
-     *  Pass 2 follow protocol methods to AKLocationManager class:
-     *  - locationManager(manager: CLLocationManager, didChangeAuthorizationStatus status: CLAuthorizationStatus)
-     *  - locationManager(manager: CLLocationManager, didUpdateLocations locations: [CLLocation])
-     */
-   
+    locationManager = AKLocationManager()
     
+    //  If you want initialize CLLocationManager with custom settings:
+    //         let coreLocationManager = CLLocationManager()
+    //         coreLocationManager.desiredAccuracy = kCLLocationAccuracyBest
+    //         coreLocationManager.activityType = .AutomotiveNavigation
+    //         coreLocationManager.distanceFilter = 5
+    //         coreLocationManager.delegate = self
+    //         locationManager.locationManager = coreLocationManager
+    //
+    //  Pass 2 follow protocol methods to AKLocationManager class:
+    //  - locationManager(manager: CLLocationManager, didChangeAuthorizationStatus status: CLAuthorizationStatus)
+    //  - locationManager(manager: CLLocationManager, didUpdateLocations locations: [CLLocation])
+    //
     
     if google {
       
@@ -82,51 +64,39 @@ class DemoViewController: UIViewController {
       view.addSubview(mapView)
       view.sendSubviewToBack(mapView)
       
-      locationManager.startObservervingObject(mapView, forKeyPath: "myLocation")
+      locationManager.addObserver(mapView, forKeyPath: "myLocation")
      
-      // NOTICE!!!
-      // Before enable my location with myLocationEnabled property
-      // from GMSMapView class
-      // call requestForUpdatingLocation method.
-      // This will run authorization process
-      // in AKLocationManager
+      //  NOTICE!!!
+      //  Before enable my location with myLocationEnabled property from GMSMapView class
+      //  call requestForUpdatingLocation method. This will run authorization process in AKLocationManager
+      //
+      //  1
       locationManager.requestForUpdatingLocation()
-      
+      //  2
       mapView.myLocationEnabled = true
-      
+      //  3
       locationManager.startUpdatingLocation()
     
     } else {
+      locationManager.startUpdatingLocationWithRequest()
       
-      locationManager.requestForUpdatingLocation()
-      locationManager.startUpdatingLocation()
-      
-      
-//      locationManager.startUpdatingLocationWithRequest()
-      
-      // or 
-      
-//      locationManager.requestForUpdatingLocation()
-//      locationManager.startUpdatingLocation()
+      //  or
+      //
+      //  locationManager.requestForUpdatingLocation()
+      //  locationManager.startUpdatingLocation()
     }
+  }
+  
+  override func viewWillAppear(animated: Bool) {
+    super.viewWillAppear(animated)
     
-
-    
+    locationManager.startUpdatingLocation()
   }
 
-  
   override func viewDidAppear(animated: Bool) {
     super.viewDidAppear(animated)
-
     
     locationManager.locationAccessDenied { (locationServicesEnabled) -> () in
-      
-      print("VC ::::::: DemoViewController")
-      print("Method ::: viewDidAppear")
-      print("           - -")
-      print("Message :: Location access denied")
-      print("")
-      
       let alertController = UIAlertController(title: "Location access disabled", message:
         "For searching caches, please open this app's settings and set location access to 'While Using the App'.", preferredStyle: UIAlertControllerStyle.Alert)
       
@@ -144,45 +114,30 @@ class DemoViewController: UIViewController {
       self.presentViewController(alertController, animated: true, completion: nil)
     }
     
-    locationManager.locationAccessRestricted { (locationServicesEnabled) -> () in
-      print("VC ::::::: DemoViewController")
-      print("Method ::: viewDidAppear")
-      print("           - -")
-      print("Message :: Location access restricted")
-      print("")
-    }
+    locationManager.locationAccessRestricted { (locationServicesEnabled) -> () in }
   }
   
-  override func viewDidDisappear(animated: Bool) {
-    super.viewDidDisappear(animated)
+  override func viewWillDisappear(animated: Bool) {
+    super.viewWillDisappear(animated)
     
-    locationManager.pauseUpdatingLocation()
+    locationManager.stopUpdatingLocation()
   }
   
-  deinit {
-    locationManager.destroy()
-    
-    print("deinit DemoViewController")
-  }
+  deinit { print("deinit \(self.dynamicType)") }
   
-  // MARK: - Actions
-  //         _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
-  
+  //  MARK: - Actions
+
   @IBAction func pauseUpdateAction(sender: UIBarButtonItem) {
-    
-    locationManager.pauseUpdatingLocation()
+    locationManager.stopUpdatingLocation()
   }
   
   @IBAction func resumeUpdateAction(sender: UIBarButtonItem) {
-    
     locationManager.startUpdatingLocation()
   }
   
-  // MARK: - Helper
-  //         _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
-  
-  func viewAnimation(view: UIView) {
-    
+  //  MARK: - Helper
+
+  func animateView(view: UIView, label: UILabel, location: CLLocation) {
     UIView.animateWithDuration(0.3,
                                delay: 0,
                                options: UIViewAnimationOptions.CurveEaseIn,
@@ -196,83 +151,48 @@ class DemoViewController: UIViewController {
                                   view.backgroundColor = UIColor.blackColor().colorWithAlphaComponent(0.6)
         }, completion: nil)
     }
+    label.text = String(location.coordinate.latitude) + " / " + String(location.coordinate.longitude)
   }
-  
-  var london: GMSMarker!
-  
-  var londonView:UIImageView!
 }
 
-// MARK: - AKLocationManagerDelegate
-//         _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+//  MARK: - AKLocationManagerDelegate
 
 extension DemoViewController: AKLocationManagerDelegate {
   
   func locationManager(manager: AKLocationManager, didGetFirstLocation location: CLLocation) {
-    print("Locaiton manager get first location")
+    print("\(self.dynamicType) Locaiton manager get first location \n")
     
-    viewAnimation(location1View)
-    location1Label.text = String(location.coordinate.latitude) + " / " + String(location.coordinate.longitude)
-    
-    if google {
-      
+    animateView(location1View, label: location1Label, location: location)
+        
+    if google {      
       mapView.camera = GMSCameraPosition.cameraWithLatitude(location.coordinate.latitude, longitude: location.coordinate.longitude, zoom: 12)
       mapView.alpha = 1
     }
   }
   
   func locationManager(manager: AKLocationManager, didUpdateLocation location: CLLocation) {
-    print("Locaiton manager updated location")
+    print("\(self.dynamicType) Locaiton manager updated location \n")
     
-    viewAnimation(location2View)
-    location2Label.text = String(location.coordinate.latitude) + " / " + String(location.coordinate.longitude)
+    animateView(location2View, label: location2Label, location: location)
   }
   
   func locationManager(manager: AKLocationManager, didUpdateLocation location: CLLocation, afterTimeInterval ti: NSTimeInterval) {
-    print("Locaiton manager updated location after ti \(ti)")
-    viewAnimation(location3View)
-    location3Label.text = String(location.coordinate.latitude) + " / " + String(location.coordinate.longitude)
+    print("\(self.dynamicType) Locaiton manager updated location after ti \(ti) \n")
+    
+    animateView(location3View, label: location3Label, location: location)
   }
   
   func locationManager(manager: AKLocationManager, didUpdateLocation location: CLLocation?, inLoopModeAfterTimeInterval ti: NSTimeInterval) {
-    print("Locaiton manager updated location after ti \(ti) in loop mode")
+    print("\(self.dynamicType) Locaiton manager updated location after ti \(ti) in loop mode \n")
     
-    if let coordinate = location?.coordinate {
-      viewAnimation(location4View)
-      location4Label.text = String(coordinate.latitude) + " / " + String(coordinate.longitude)
+    if let location = location {
+      animateView(location4View, label: location4Label, location: location)
     }
-  }
-  
-  func locationManager(manager: AKLocationManager, didUpdateLocation location: CLLocation, afterDistance distance: CLLocationDistance) {
-    print("Locaiton manager updated location after distance \(distance)")
-    
-    viewAnimation(location5View)
-    location5Label.text = String(location.coordinate.latitude) + " / " + String(location.coordinate.longitude)
-  }
-  
-  func locationManagerReceivedDeniedNotification(manager: AKLocationManager) {
-    print("Locaiton manager received DENIDED notification from didChangeAuthorizationStatus method")
-  }
-
-  func locationManagerReceivedAllowedNotification(manager: AKLocationManager) {
-    print("Locaiton manager received ALLOWED notification from didChangeAuthorizationStatus method")
-  }
-  
-  func locationManagerAuthorized(manager: AKLocationManager) {
-    print("User ALLOWED updating location")
-  }
-  
-  func locationManagerDenied(manager: AKLocationManager) {
-    print("User DENIDED updating location")
-  }
-  
-  func locationManager(manager: AKLocationManager, didGetError error: AKLocationManagerError) {
-    print("Locaiton manager did fail with error \(error)")
   }
 }
 
-// MARK: - CLLocationManagerDelegate
-//         _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+//  MARK: - CLLocationManagerDelegate
+
 /*
 extension DemoViewController: CLLocationManagerDelegate {
   func locationManager(manager: CLLocationManager, didChangeAuthorizationStatus status: CLAuthorizationStatus) {

@@ -3,7 +3,7 @@
 //  AKLocationManager Demo
 //
 //  Created by Artem Krachulov.
-//  Copyright © 2016 Krachulov Artem . All rights reserved.
+//  Copyright © 2016 Krachulov Artem. All rights reserved.
 //  Website: http://www.artemkrachulov.com/
 //
 

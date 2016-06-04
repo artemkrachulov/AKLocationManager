@@ -18,7 +18,5 @@ DerivedData
 *.xcuserstate
 
 Pods/
-Demo/Pods/
-Demo/Vandor/
-
+Vendor/
 Extra/

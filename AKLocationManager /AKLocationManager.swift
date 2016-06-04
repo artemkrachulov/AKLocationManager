@@ -81,8 +81,20 @@ class AKLocationManager: NSObject {
   ///
   var loopLocationTimeInterval: NSTimeInterval = 5
   
+  /// Specifies the speed in meters per second, when location 
+  /// must be updated with updateLocationTimeInterval property.
+  /// 
+  /// Examples:
+  /// 
+  /// - 0       Stand
+  /// - 0.3 - 1.38   Walk
+  /// - 1.38 - 4.16   Run
+  /// - 4.16 - 11.1  Bicycle
+  ///
+  var updateLocationSpeed: CLLocationSpeed = 0.0
+  
   /// Specifies the minimum update time intervar in secounds.
-  /// Even if core manger of other object will receive new location. 
+  /// Even if core manger of other object will receive new location.
   ///
   /// Follow delegate method:
   ///
@@ -90,19 +102,7 @@ class AKLocationManager: NSObject {
   ///
   /// will run not less when n secounds delay after prevoius
   ///
-  var updateLocationTimeInterval: NSTimeInterval = 2.0
-  
-  /// Specifies the speed in meters per second, when location 
-  /// must be updated with updateLocationTimeInterval property.
-  /// 
-  /// Examples:
-  /// 
-  /// - 0       Stand
-  /// - 1 - 2   Walk
-  /// - 2 - 7   Run
-  /// - 7 - 11  Bicycle
-  ///
-  var updateLocationSpeed: CLLocationSpeed = 0.0
+  var updateLocationMinTimeInterval: NSTimeInterval = 2.0
   
   /// Specifies the max update time intervar in secounds. If updateLocationSpeed proretry have
   /// not zero value, but location manager can't detect speed.
@@ -113,7 +113,7 @@ class AKLocationManager: NSObject {
   ///
   /// will run after n secounds delay.
   ///
-  var updateMaxLocationTimeInterval: NSTimeInterval = 300.0
+  var updateLocationMaxTimeInterval: NSTimeInterval = 300.0
   
   /// Specifies the time interval in secounds when class will try to
   /// get first location. If location undefined and timer is off,
@@ -171,10 +171,11 @@ class AKLocationManager: NSObject {
   private var firstLocationCounter: Int = 0
   
   private var loopUpdateLocationTimer: NSTimer?
+//  private var loopUpdateLocationTimeInterval: NSTimeInterval 
   
   private var updateLocationTimer: NSTimer?
-
-  private var updateMaxLocationTimer: NSTimer?
+  private var updateLocationTimeInterval: NSTimeInterval!
+  private var updateLocationTimerFirstDelegate: Bool = false
   
   //  Other
   
@@ -291,6 +292,7 @@ class AKLocationManager: NSObject {
 //    incleaseUpdatedDistanceOnSpeedChange = false
     ditectFirsLocationTime = 5
   }
+  
   func destroy() {
     //  1. Background notiications
     //
@@ -398,10 +400,6 @@ class AKLocationManager: NSObject {
     //
     updateLocationTimerReset()
     
-    //   Update with time max interval timer
-    //
-    updateMaxLocationTimerReset()
-    
     //   Loop timer
     //
     loopUpdateLocationTimerReset()
@@ -416,12 +414,30 @@ class AKLocationManager: NSObject {
     
     //  Update after time interval and speed
     //
-    if location.speed >= updateLocationSpeed {
-      updateLocationTimerStart()
-      updateMaxLocationTimerReset()
+    
+    
+//    print("location \(location)")
+    
+    
+    var timeInterval = updateLocationMinTimeInterval
+    
+    if location.speed >= updateLocationSpeed && location.speed != 0.0 {
+      if updateLocationTimeInterval == updateLocationMaxTimeInterval {
+        if let updateLocationTimerRemain = updateLocationTimer?.fireDate.timeIntervalSinceDate(NSDate()) {
+          if updateLocationMaxTimeInterval - updateLocationTimerRemain > updateLocationMinTimeInterval {
+            updateLocationTimerReset()
+          }
+        }
+      }
     } else {
-      updateMaxLocationTimerStart()
+      timeInterval = updateLocationMaxTimeInterval
     }
+    
+    print("timeInterval \(timeInterval)")
+    print("updateLocationTimer \(updateLocationTimeInterval)")
+    
+    updateLocationTimerStart(timeInterval)
+    
   }
 
   private func addResignActiveObservers() {
@@ -440,44 +456,25 @@ class AKLocationManager: NSObject {
   }
   
   //  MARK: - Timers
-  //  MARK:   Update max location
-  
-  private func updateMaxLocationTimerStart() {
-    if updateMaxLocationTimer == nil {
-      #if AKLocationManagerDEBUG
-        print("\(self.dynamicType) \(#function) \n")
-      #endif
-      
-      updateMaxLocationTimer = NSTimer.scheduledTimerWithTimeInterval(updateMaxLocationTimeInterval,
-                                                                   target: self,
-                                                                   selector: #selector(updateMaxLocationTimerReset),
-                                                                   userInfo: nil,
-                                                                   repeats: false)
-      
-      delegate?.locationManager(self, didUpdateLocation: myLocation!, afterTimeInterval: updateMaxLocationTimeInterval)
-    }
-  }
-
-  @objc private func updateMaxLocationTimerReset() {
-    updateMaxLocationTimer?.invalidate()
-    updateMaxLocationTimer = nil
-  }
-  
   //  MARK:   Update location
   
-  private func updateLocationTimerStart() {
+  private func updateLocationTimerStart(timeInterval: NSTimeInterval) {
     if updateLocationTimer == nil {
       #if AKLocationManagerDEBUG
         print("\(self.dynamicType) \(#function) \n")
       #endif
       
-      updateLocationTimer = NSTimer.scheduledTimerWithTimeInterval(updateLocationTimeInterval,
+      updateLocationTimeInterval = timeInterval
+      updateLocationTimer = NSTimer.scheduledTimerWithTimeInterval(timeInterval,
                                                                    target: self,
                                                                    selector: #selector(updateLocationTimerReset),
                                                                    userInfo: nil,
                                                                    repeats: false)
       
-      delegate?.locationManager(self, didUpdateLocation: myLocation!, afterTimeInterval: updateLocationTimeInterval)
+      if updateLocationTimerFirstDelegate {
+        delegate?.locationManager(self, didUpdateLocation: myLocation!, afterTimeInterval: updateLocationTimeInterval)
+      }
+      updateLocationTimerFirstDelegate = true
     }
   }
   
@@ -499,14 +496,13 @@ class AKLocationManager: NSObject {
                                                                  selector: #selector(loopUpdateLocationTimerAction),
                                                                  userInfo: nil,
                                                                  repeats: true)
-      loopUpdateLocationTimerAction()
     }
   }
   
   @objc private func loopUpdateLocationTimerAction() {
     delegate?.locationManager(self,
                               didUpdateLocation: myLocation,
-                              inLoopModeAfterTimeInterval: updateLocationTimeInterval)
+                              inLoopModeAfterTimeInterval: loopLocationTimeInterval)
   }
   
   private func loopUpdateLocationTimerReset() {

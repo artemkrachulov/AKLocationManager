@@ -1,6 +1,6 @@
 //
 //  ViewController.swift
-//  AKLocationManager Demo
+//  AKLocationManager
 //
 //  Created by Artem Krachulov.
 //  Copyright © 2016 Krachulov Artem. All rights reserved.
@@ -12,7 +12,7 @@ import UIKit
 class ViewController: UIViewController {
   
    // MARK: - Navigation
-   
+  
    // In a storyboard-based application, you will often want to do a little preparation before navigation
    override func prepareForSegue(segue: UIStoryboardSegue, sender: AnyObject?) {
     
@@ -20,4 +20,3 @@ class ViewController: UIViewController {
     vc.google = segue.identifier == "google-segue"
    }
 }
-

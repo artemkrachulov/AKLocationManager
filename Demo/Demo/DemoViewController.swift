@@ -1,6 +1,6 @@
 //
 //  DemoViewController.swift
-//  AKLocationManager Demo
+//  AKLocationManager
 //
 //  Created by Artem Krachulov.
 //  Copyright © 2016 Krachulov Artem. All rights reserved.
@@ -20,10 +20,8 @@ class DemoViewController: UIViewController {
   @IBOutlet weak var location2Label: UILabel!
   @IBOutlet weak var location3View: UIView!
   @IBOutlet weak var location3Label: UILabel!
-  @IBOutlet weak var location4View: UIView!
-  @IBOutlet weak var location4Label: UILabel!
   
-  //  Objects
+  // Objects
   
   var locationManager: AKLocationManager! {
     didSet { locationManager.delegate = self }
@@ -34,7 +32,8 @@ class DemoViewController: UIViewController {
   //  Other
   
   var google = false
-
+  var backFromVC = false
+  
   //  MARK: - Life cycle
 
   override func viewDidLoad() {
@@ -89,8 +88,9 @@ class DemoViewController: UIViewController {
   
   override func viewWillAppear(animated: Bool) {
     super.viewWillAppear(animated)
-    
-    locationManager.startUpdatingLocation()
+    if backFromVC {
+      locationManager.startUpdatingLocation()
+    }
   }
 
   override func viewDidAppear(animated: Bool) {
@@ -117,13 +117,9 @@ class DemoViewController: UIViewController {
     locationManager.locationAccessRestricted { (locationServicesEnabled) -> () in }
   }
   
-  override func viewWillDisappear(animated: Bool) {
-    super.viewWillDisappear(animated)
-    
-    locationManager.stopUpdatingLocation()
+  deinit {
+    print("deinit \(self.dynamicType)")
   }
-  
-  deinit { print("deinit \(self.dynamicType)") }
   
   //  MARK: - Actions
 
@@ -133,6 +129,10 @@ class DemoViewController: UIViewController {
   
   @IBAction func resumeUpdateAction(sender: UIBarButtonItem) {
     locationManager.startUpdatingLocation()
+  }
+  
+  @IBAction func refreshAction(sender: AnyObject) {
+    locationManager.requestLocation()
   }
   
   //  MARK: - Helper
@@ -152,6 +152,11 @@ class DemoViewController: UIViewController {
         }, completion: nil)
     }
     label.text = String(location.coordinate.latitude) + " / " + String(location.coordinate.longitude)
+  }
+  
+  override func prepareForSegue(segue: UIStoryboardSegue, sender: AnyObject?) {
+    locationManager.stopUpdatingLocation()
+    backFromVC = true
   }
 }
 
@@ -176,18 +181,18 @@ extension DemoViewController: AKLocationManagerDelegate {
     animateView(location2View, label: location2Label, location: location)
   }
   
-  func locationManager(manager: AKLocationManager, didUpdateLocation location: CLLocation, afterTimeInterval ti: NSTimeInterval) {
-    print("\(self.dynamicType) Locaiton manager updated location after ti \(ti) \n")
+  func locationManager(manager: AKLocationManager, didUpdateLocation location: CLLocation, afterTimeInterval timeInterval: NSTimeInterval?) {
+    print("\(self.dynamicType) Locaiton manager updated location after timeInterval \(timeInterval) \n")
     
     animateView(location3View, label: location3Label, location: location)
   }
   
-  func locationManager(manager: AKLocationManager, didUpdateLocation location: CLLocation?, inLoopModeAfterTimeInterval ti: NSTimeInterval) {
-    print("\(self.dynamicType) Locaiton manager updated location after ti \(ti) in loop mode \n")
-    
-    if let location = location {
-      animateView(location4View, label: location4Label, location: location)
-    }
+  func locationManager(manager: AKLocationManager, didGetError error: AKLocationManagerError) {
+    print("Error \(error)")
+  }
+  
+  func locationManager(manager: AKLocationManager, didGetNotification notification: AKLocationManagerNotification) {
+    print("Notification \(notification)")
   }
 }
 

@@ -84,11 +84,13 @@ extension DemoViewController: AKLocationManagerDelegate {
 
 - iOS 8.0+
 - Xcode 7.3+
--
+
 ## Installation
 
 1. Clone or download demo project.
 2. Add `AKLocationManager ` folder to your project.
+
+> Demo project require GoogleMaps pod. You need install pod with command `pod install`. Open `Demo.xcworkspace` file and past your api key `__API_KEY__`from Google Developers Console.
 
 ## Requesting Authorization for Location Services
 

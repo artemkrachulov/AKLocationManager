@@ -136,6 +136,9 @@ class AKLocationManager: NSObject {
   /// This property (flag) is used to prevent loops execution method name
   private var _startSafeUpdatingLocation: Bool = false
   
+//  
+  private var _startSafeUpdatingLocationFirst: Bool = false
+  
   /// This property (flag) is used to prevent loops execution method name
   private var  _addResignActiveObservers: Bool = false
   
@@ -226,11 +229,7 @@ class AKLocationManager: NSObject {
   
   /// Request the one-time delivery of the user’s current location.
   func requestLocation() {
-    guard let location = myLocation else { return }
-    
-    firstTimerReset()
-    lastLocationDate = nil
-    updateLocation(location)
+    updateLocation(myLocation, skipSpeed: true)
   }
   
   //  MARK: Custom location manager
@@ -290,14 +289,16 @@ class AKLocationManager: NSObject {
       _startSafeUpdatingLocation = true
       
       // START
-      
+      if firstLocation {
+        _startSafeUpdatingLocationFirst = true
+      }
       // 1. CLLocationManager
-      lastLocationDate = nil
       locationManager?.startUpdatingLocation()
 
       // 2. Object
       if observerObject != nil && !observerAdded {
         observerObject?.addObserver(self, forKeyPath: observerKeyPath, options: NSKeyValueObservingOptions.New, context: nil)
+        updateLocation(myLocation)
         observerAdded = true
       }
       
@@ -347,15 +348,25 @@ class AKLocationManager: NSObject {
     stop()
   }
   
-  private func updateLocation(location: CLLocation) {
+  private func updateLocation(location: CLLocation?, skipSpeed: Bool = false) {
+    
+    guard let location = myLocation else { return }
     
     // Update
     delegate?.locationManager(self,
                               didUpdateLocation: location)
+
+    if skipSpeed || _startSafeUpdatingLocationFirst {
+      let timeInterval = lastLocationDate != nil ? NSDate().timeIntervalSinceDate(lastLocationDate) : 0
+      delegate?.locationManager(self, didUpdateLocation: location, afterTimeInterval: timeInterval)
+      
+      self.lastLocationDate = NSDate()
+      _startSafeUpdatingLocationFirst = false
+      return
+    }
     
     guard let lastLocationDate = lastLocationDate else {
       self.lastLocationDate = NSDate()
-      delegate?.locationManager(self, didUpdateLocation: myLocation!, afterTimeInterval: nil)
       return
     }
     
@@ -367,7 +378,7 @@ class AKLocationManager: NSObject {
     
     if NSDate().timeIntervalSinceDate(lastLocationDate) > timeInterval {
       self.lastLocationDate = NSDate()
-      delegate?.locationManager(self, didUpdateLocation: myLocation!, afterTimeInterval: timeInterval)
+      delegate?.locationManager(self, didUpdateLocation: location, afterTimeInterval: timeInterval)
     }
   }
 
@@ -470,9 +481,8 @@ extension AKLocationManager: CLLocationManagerDelegate {
   }
   
   func locationManager(manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-    guard locations.first != nil && observerObject == nil && observerKeyPath == nil else { return }
-    
-    updateLocation(locations.first!)
+    guard observerObject == nil && observerKeyPath == nil else { return }
+    updateLocation(locations.first)
   }
 }
 
@@ -481,9 +491,7 @@ extension AKLocationManager: CLLocationManagerDelegate {
 extension AKLocationManager {
   override func observeValueForKeyPath(keyPath: String?, ofObject object: AnyObject?, change: [String : AnyObject]?, context: UnsafeMutablePointer<Void>) {
     if let keyPath = keyPath where keyPath == "myLocation" {
-      guard let location = change![NSKeyValueChangeNewKey] as? CLLocation else { return }
-      
-      updateLocation(location)
+      updateLocation(change![NSKeyValueChangeNewKey] as? CLLocation)
     }
   }
 }
@@ -529,7 +537,7 @@ extension AKLocationManager {
     #endif
     
     inBackground = false
-    lastLocationDate = nil
+    updateLocation(myLocation, skipSpeed: true)
     delegate?.locationManager(self,
                               didGetNotification: .AppActive)
   }
@@ -555,7 +563,7 @@ protocol AKLocationManagerDelegate : class {
   /// - Parameter manager : The location manager object that generated the update event.
   /// - Parameter location :The most recently retrieved user location.
   /// - Parameter timeInterval : Time interval value from since last update.
-  func locationManager(manager: AKLocationManager, didUpdateLocation location: CLLocation, afterTimeInterval timeInterval: NSTimeInterval?)
+  func locationManager(manager: AKLocationManager, didUpdateLocation location: CLLocation, afterTimeInterval timeInterval: NSTimeInterval)
   
   /// Tells the delegate that the location manager was unable to retrieve a location value.
   ///
@@ -573,7 +581,7 @@ protocol AKLocationManagerDelegate : class {
 extension AKLocationManagerDelegate {
   func locationManager(manager: AKLocationManager, didGetFirstLocation location: CLLocation) {}
   func locationManager(manager: AKLocationManager, didUpdateLocation location: CLLocation) {}
-  func locationManager(manager: AKLocationManager, didUpdateLocation location: CLLocation, afterTimeInterval timeInterval: NSTimeInterval?) {}
+  func locationManager(manager: AKLocationManager, didUpdateLocation location: CLLocation, afterTimeInterval timeInterval: NSTimeInterval) {}
   func locationManager(manager: AKLocationManager, didGetError error: AKLocationManagerError) {}
   func locationManager(manager: AKLocationManager, didGetNotification notification: AKLocationManagerNotification) {}
 }

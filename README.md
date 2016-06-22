@@ -214,14 +214,14 @@ Parameters:
 * `location` :The most recently retrieved user location.
 
 ```swift
-locationManager(manager: AKLocationManager, didUpdateLocation location: CLLocation, afterTimeInterval timeInterval: NSTimeInterval?)
+locationManager(manager: AKLocationManager, didUpdateLocation location: CLLocation, afterTimeInterval timeInterval: NSTimeInterval)
 ```
 
 Default sender of this method on core location manager. After registering observer (ex. Google Maps) sender will be custom location manager. Updating location will be no earlier than minimum or maximum time interval value.
 Parameters:
 * `manager` : The location manager object that generated the update event.
 * `location` :The most recently retrieved user location.
-* `timeInterval` : Time interval value from since last update. Can be `nil` value on start updating location.
+* `timeInterval` : Time interval value from since last update.
 
 ```swift
 func locationManager(manager: AKLocationManager, didGetError error: AKLocationManagerError)

@@ -181,7 +181,7 @@ extension DemoViewController: AKLocationManagerDelegate {
     animateView(location2View, label: location2Label, location: location)
   }
   
-  func locationManager(manager: AKLocationManager, didUpdateLocation location: CLLocation, afterTimeInterval timeInterval: NSTimeInterval?) {
+  func locationManager(manager: AKLocationManager, didUpdateLocation location: CLLocation, afterTimeInterval timeInterval: NSTimeInterval) {
     print("\(self.dynamicType) Locaiton manager updated location after timeInterval \(timeInterval) \n")
     
     animateView(location3View, label: location3Label, location: location)

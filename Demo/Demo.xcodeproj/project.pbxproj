@@ -111,9 +111,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		43AB7CB91C4A70FC00C32667 /* Demo */ = {
+		43AB7CB91C4A70FC00C32667 /* AKLocationManager */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 43AB7CE21C4A70FC00C32667 /* Build configuration list for PBXNativeTarget "Demo" */;
+			buildConfigurationList = 43AB7CE21C4A70FC00C32667 /* Build configuration list for PBXNativeTarget "AKLocationManager" */;
 			buildPhases = (
 				1A0B46FDB2DCFF1E4F9B4DCB /* 📦 Check Pods Manifest.lock */,
 				43AB7CB61C4A70FC00C32667 /* Sources */,
@@ -126,7 +126,7 @@
 			);
 			dependencies = (
 			);
-			name = Demo;
+			name = AKLocationManager;
 			productName = AKMap;
 			productReference = 43AB7CBA1C4A70FC00C32667 /* Demo.app */;
 			productType = "com.apple.product-type.application";
@@ -164,7 +164,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				43AB7CB91C4A70FC00C32667 /* Demo */,
+				43AB7CB91C4A70FC00C32667 /* AKLocationManager */,
 			);
 		};
 /* End PBXProject section */
@@ -387,7 +387,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		43AB7CE21C4A70FC00C32667 /* Build configuration list for PBXNativeTarget "Demo" */ = {
+		43AB7CE21C4A70FC00C32667 /* Build configuration list for PBXNativeTarget "AKLocationManager" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				43AB7CE31C4A70FC00C32667 /* Debug */,

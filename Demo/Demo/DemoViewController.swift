@@ -20,6 +20,7 @@ class DemoViewController: UIViewController {
   @IBOutlet weak var location2Label: UILabel!
   @IBOutlet weak var location3View: UIView!
   @IBOutlet weak var location3Label: UILabel!
+  @IBOutlet weak var location3time: UILabel!
   
   // Objects
   
@@ -97,24 +98,33 @@ class DemoViewController: UIViewController {
     super.viewDidAppear(animated)
     
     locationManager.locationAccessDenied { (locationServicesEnabled) -> () in
-      let alertController = UIAlertController(title: "Location access disabled", message:
-        "For searching caches, please open this app's settings and set location access to 'While Using the App'.", preferredStyle: UIAlertControllerStyle.Alert)
-      
-      alertController.addAction(UIAlertAction(title: "Cancel", style: UIAlertActionStyle.Default, handler: nil))
-      
-      alertController.addAction(UIAlertAction(title: "Open Settings",
-        style: UIAlertActionStyle.Default,
-        handler: { (success) in
-          if let url = NSURL(string:UIApplicationOpenSettingsURLString) {
-            UIApplication.sharedApplication().openURL(url)
-          }
-      })
-      )
-      
-      self.presentViewController(alertController, animated: true, completion: nil)
+      self.settingdAlert("Location access denied")
     }
     
-    locationManager.locationAccessRestricted { (locationServicesEnabled) -> () in }
+    locationManager.locationAccessRestricted { (locationServicesEnabled) -> () in
+    
+      self.settingdAlert("Location access restricted")
+    
+    
+    }
+  }
+  
+  func settingdAlert(title: String) {
+    let alertController = UIAlertController(title: title, message:
+      "Open this app's settings and set up location access", preferredStyle: UIAlertControllerStyle.Alert)
+    
+    alertController.addAction(UIAlertAction(title: "Cancel", style: UIAlertActionStyle.Default, handler: nil))
+    
+    alertController.addAction(UIAlertAction(title: "Open Settings",
+      style: UIAlertActionStyle.Default,
+      handler: { (success) in
+        if let url = NSURL(string:UIApplicationOpenSettingsURLString) {
+          UIApplication.sharedApplication().openURL(url)
+        }
+    })
+    )
+    
+    self.presentViewController(alertController, animated: true, completion: nil)
   }
   
   deinit {
@@ -165,8 +175,6 @@ class DemoViewController: UIViewController {
 extension DemoViewController: AKLocationManagerDelegate {
   
   func locationManager(manager: AKLocationManager, didGetFirstLocation location: CLLocation) {
-    print("\(self.dynamicType) Locaiton manager get first location \n")
-    
     animateView(location1View, label: location1Label, location: location)
         
     if google {      
@@ -176,8 +184,6 @@ extension DemoViewController: AKLocationManagerDelegate {
   }
   
   func locationManager(manager: AKLocationManager, didUpdateLocation location: CLLocation) {
-    print("\(self.dynamicType) Locaiton manager updated location \n")
-    
     animateView(location2View, label: location2Label, location: location)
   }
   
@@ -185,6 +191,7 @@ extension DemoViewController: AKLocationManagerDelegate {
     print("\(self.dynamicType) Locaiton manager updated location after timeInterval \(timeInterval) \n")
     
     animateView(location3View, label: location3Label, location: location)
+    location3time.text = "after \(String(timeInterval)) sec"
   }
   
   func locationManager(manager: AKLocationManager, didGetError error: AKLocationManagerError) {

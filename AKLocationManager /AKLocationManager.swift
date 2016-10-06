@@ -120,8 +120,8 @@ public class AKLocationManager: NSObject {
   
   // App authorized states. Using for detect manually changing authorization status by user.
   private var authNotDetermined: Bool = false
-  private var authorizationStatus: CLAuthorizationStatus { return CLLocationManager.authorizationStatus() }
-  private var isAuthorized: Bool {
+  var authorizationStatus: CLAuthorizationStatus { return CLLocationManager.authorizationStatus() }
+  var isAuthorized: Bool {
     return authorizationStatus == .AuthorizedAlways || authorizationStatus == .AuthorizedWhenInUse
   }
   
@@ -150,6 +150,19 @@ public class AKLocationManager: NSObject {
   /// Key to detect current if app in background. Used to stop / start updatig locations if updatingInBackground setting set to true.
   private var inBackground: Bool = false
   
+  override init() {
+    super.init()
+    initLocationManager()
+  }
+  
+  final func initLocationManager() {
+    locationManager = CLLocationManager()
+    locationManager?.delegate = self
+    locationManager?.desiredAccuracy = kCLLocationAccuracyBest
+    locationManager?.activityType = .Fitness
+    locationManager?.distanceFilter = 1
+  }
+  
   //  MARK: - Requesting Authorization for Location Services
   
   /// Requests permission to use location services.
@@ -160,14 +173,6 @@ public class AKLocationManager: NSObject {
     
     // CLLocationManager initalization.
     // Initalization will call requestWhenInUseAuthorization() method automatically
-    
-    if locationManager == nil {
-      locationManager = CLLocationManager()
-      locationManager?.delegate = self
-      locationManager?.desiredAccuracy = kCLLocationAccuracyBest
-      locationManager?.activityType = .Fitness
-      locationManager?.distanceFilter = 1
-    }
     
     // Prevent authorization if class already authorized
     guard !isAuthorized else {
@@ -284,7 +289,7 @@ public class AKLocationManager: NSObject {
   private func startSafeUpdatingLocation() {
     func start() {
       #if AKLocationManagerDEBUG
-        print("\(self.dynamicType) \(#function) \n")
+       print("\(self.dynamicType) \(#function) \n")
       #endif
       
       guard updateLocationStarted && !_startSafeUpdatingLocation else { return }
@@ -416,22 +421,30 @@ public class AKLocationManager: NSObject {
   }
   
   //  MARK: - Check authorization
+ 
+  final func locationAccessNotAuthorized(onComplete: (locationServicesEnabled: Bool, authorizationStatus: CLAuthorizationStatus) -> ()) {
+    onComplete(locationServicesEnabled:
+      CLLocationManager.locationServicesEnabled(), authorizationStatus: authorizationStatus)
+  }
   
   final func locationAccessDenied(onComplete: (locationServicesEnabled: Bool) -> ()) {
     if authorizationStatus == .Denied {
-      onComplete(locationServicesEnabled: CLLocationManager.locationServicesEnabled())
+      onComplete(locationServicesEnabled:
+        CLLocationManager.locationServicesEnabled())
     }
   }
   
   final func locationAccessRestricted(onComplete: (locationServicesEnabled: Bool) -> ()) {
     if authorizationStatus == .Restricted {
-      onComplete(locationServicesEnabled: CLLocationManager.locationServicesEnabled())
+      onComplete(locationServicesEnabled:
+        CLLocationManager.locationServicesEnabled())
     }
   }
   
   final func locationAccessNotDetermined(onComplete: (locationServicesEnabled: Bool) -> ()) {
     if authorizationStatus == .NotDetermined {
-      onComplete(locationServicesEnabled: CLLocationManager.locationServicesEnabled())
+      onComplete(locationServicesEnabled:
+        CLLocationManager.locationServicesEnabled())
     }
   }
   
@@ -447,7 +460,7 @@ public class AKLocationManager: NSObject {
 //  MARK: - CLLocationManagerDelegate
 
 extension AKLocationManager: CLLocationManagerDelegate {
-  public func locationManager(manager: CLLocationManager, didChangeAuthorizationStatus status: CLAuthorizationStatus) {
+  public func locationManager(manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
     switch status {
     case .AuthorizedAlways,
          .AuthorizedWhenInUse:
